@@ -275,6 +275,7 @@ function checkWin() {
 }
 
 // 🕹️ KEYBOARD CONTROLS (Player vs AI)
+// 🕹️ KEYBOARD CONTROLS (Player vs AI)
 window.addEventListener('keydown', (e) => {
     if (currentMode !== "PvA" || p1Algo !== "Manual") return;
 
@@ -284,18 +285,22 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') nc--;
     if (e.key === 'ArrowRight') nc++;
 
+    // Only proceed if the player's intended move is onto an EMPTY floor tile
     if (isValid(nr, nc)) {
         player.r = nr; 
         player.c = nc;
         
-        // Make the Rival AI take its next step automatically right after you move!
+        // RE-CALCULATE PATHS IMMEDIATELY SO THE AI KNOWS WHERE TO GO
+        updatePaths(); 
+
+        // Force the Rival AI to take its next step if a path exists
         if (plannedPathP2.length > 0) {
             enemy.r = plannedPathP2[0].r; 
             enemy.c = plannedPathP2[0].c;
         }
         
         checkWin(); 
-        updatePaths(); 
+        updatePaths(); // Recalculate one more time for the next render
         draw();
     }
 });
