@@ -5,7 +5,7 @@ const ctx = canvas.getContext('2d');
 const GRID_SIZE = 15;
 const CELL_SIZE = canvas.width / GRID_SIZE;
 
-// 💡 New Grid Types for Different Furniture
+// Grid Types for Different Furniture
 const EMPTY = 0;
 const DIAS = 1;         // Judge's Dias
 const WITNESS = 2;      // Witness Box
@@ -32,17 +32,17 @@ let p2Algo = "A*";
 let plannedPathP1 = [];
 let plannedPathP2 = [];
 
-// --- 🎨 UNIQUE COLORS & DESIGNS ---
+// Colors & Designs
 const PALETTE = {
     bg: "#FFFFFF",
     grid: "#F5F2EB",
-    [DIAS]: { color: "#5C3D2E", text: "JUDGE", fontColor: "#FFFFFF" },         // Rich Dark Wood
-    [WITNESS]: { color: "#865439", text: "WITNESS", fontColor: "#FFFFFF" },     // Medium Wood
-    [DOCK]: { color: "#475569", text: "DOCK", fontColor: "#FFFFFF" },           // Cold Iron Gray
-    [PROSECUTION]: { color: "#C0D8C0", text: "PROS.", fontColor: "#2C3639" },   // Muted Green
-    [DEFENSE]: { color: "#F5C6A5", text: "DEF.", fontColor: "#2C3639" },        // Muted Peach
-    [JURY]: { color: "#A7D2CB", text: "JURY", fontColor: "#2C3639" },           // Sage Teal
-    [SEATING]: { color: "#EAE3D2", text: "SEAT", fontColor: "#7A7A7A" }         // Light Warm Tan
+    [DIAS]: { color: "#5C3D2E", text: "JUDGE", fontColor: "#FFFFFF" },
+    [WITNESS]: { color: "#865439", text: "WITNESS", fontColor: "#FFFFFF" },
+    [DOCK]: { color: "#475569", text: "DOCK", fontColor: "#FFFFFF" },
+    [PROSECUTION]: { color: "#C0D8C0", text: "PROS.", fontColor: "#2C3639" },
+    [DEFENSE]: { color: "#F5C6A5", text: "DEF.", fontColor: "#2C3639" },
+    [JURY]: { color: "#A7D2CB", text: "JURY", fontColor: "#2C3639" },
+    [SEATING]: { color: "#EAE3D2", text: "SEAT", fontColor: "#7A7A7A" }
 };
 
 const ICONS = {
@@ -51,21 +51,22 @@ const ICONS = {
     evidence: "📜"
 };
 
-// --- 2. THE BRAIN ---
+// --- 2. THE BRAIN (ALGORITHMS) ---
 
 function manhattan(r1, c1, r2, c2) {
     return Math.abs(r1 - r2) + Math.abs(c1 - c2);
 }
 
-// 💡 Any cell that isn't EMPTY is considered a blocked obstacle
 function isValid(r, c) {
     return r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE && grid[r][c] === EMPTY;
 }
 
+// 🧠 A* SEARCH (The Smart One: Snaps directly and optimally to target)
 function runAStar(start, target) {
     let openSet = [{ r: start.r, c: start.c, g: 0, h: manhattan(start.r, start.c, target.r, target.c), f: 0, parent: null }];
     let closedSet = new Set();
     openSet[0].f = openSet[0].g + openSet[0].h;
+    
     const dr = [-1, 1, 0, 0], dc = [0, 0, -1, 1];
 
     while (openSet.length > 0) {
@@ -94,10 +95,14 @@ function runAStar(start, target) {
     return [];
 }
 
+// 🌊 BFS SEARCH (Modified to take a boxy, wide-turning detour)
 function runBFS(start, target) {
     let queue = [{ r: start.r, c: start.c, parent: null }];
     let visited = new Set([`${start.r},${start.c}`]);
-    const dr = [-1, 1, 0, 0], dc = [0, 0, -1, 1];
+    
+    // Forces boxy horizontal and vertical movements first
+    const dr = [0, 0, 1, -1];
+    const dc = [1, -1, 0, 0];
 
     while (queue.length > 0) {
         let curr = queue.shift();
@@ -118,6 +123,37 @@ function runBFS(start, target) {
     return [];
 }
 
+// 🌀 DFS SEARCH (The Deep Diver: Wanders and takes the scenic route)
+function runDFS(start, target) {
+    let stack = [{ r: start.r, c: start.c, parent: null }];
+    let visited = new Set([`${start.r},${start.c}`]);
+    
+    const dr = [-1, 1, 0, 0];
+    const dc = [0, 0, -1, 1];
+
+    while (stack.length > 0) {
+        let curr = stack.pop(); 
+        
+        if (curr.r === target.r && curr.c === target.c) {
+            let path = [];
+            let temp = curr;
+            while (temp.parent) { path.push({ r: temp.r, c: temp.c }); temp = temp.parent; }
+            return path.reverse();
+        }
+
+        for (let i = 0; i < 4; i++) {
+            let nr = curr.r + dr[i];
+            let nc = curr.c + dc[i];
+            
+            if (isValid(nr, nc) && !visited.has(`${nr},${nc}`)) {
+                visited.add(`${nr},${nc}`);
+                stack.push({ r: nr, c: nc, parent: curr });
+            }
+        }
+    }
+    return [];
+}
+
 function getAiTarget() {
     let distPlayerToEvidence = manhattan(player.r, player.c, evidence.r, evidence.c);
     let distAiToEvidence = manhattan(enemy.r, enemy.c, evidence.r, evidence.c);
@@ -129,9 +165,17 @@ function getAiTarget() {
 
 function updatePaths() {
     let aiTarget = getAiTarget();
-    plannedPathP2 = p2Algo === "A*" ? runAStar(enemy, aiTarget) : runBFS(enemy, aiTarget);
+    
+    // 🤖 Rival AI Pathing (P2)
+    if (p2Algo === "A*") plannedPathP2 = runAStar(enemy, aiTarget);
+    else if (p2Algo === "BFS") plannedPathP2 = runBFS(enemy, aiTarget);
+    else if (p2Algo === "DFS") plannedPathP2 = runDFS(enemy, aiTarget);
+
+    // 👩‍💼 Simulation Pathing (P1 in AI vs AI mode)
     if (currentMode === "AvA" && p1Algo !== "Manual") {
-        plannedPathP1 = p1Algo === "A*" ? runAStar(player, evidence) : runBFS(player, evidence);
+        if (p1Algo === "A*") plannedPathP1 = runAStar(player, evidence);
+        else if (p1Algo === "BFS") plannedPathP1 = runBFS(player, evidence);
+        else if (p1Algo === "DFS") plannedPathP1 = runDFS(player, evidence);
     } else {
         plannedPathP1 = [];
     }
@@ -142,23 +186,12 @@ function updatePaths() {
 function generateCourtroom() {
     grid = Array(GRID_SIZE).fill().map(() => Array(GRID_SIZE).fill(EMPTY));
     
-    // 🏛️ 1. JUDGE'S DIAS (Top Center)
     for (let i = 5; i <= 9; i++) grid[1][i] = DIAS; 
-    
-    // 🏛️ 2. WITNESS BOX (Top Left)
     grid[2][3] = WITNESS;
-    
-    // 🏛️ 3. THE ACCUSED CAGE / DOCK (Top Right)
     grid[2][11] = DOCK; 
-    
-    // 🏛️ 4. JURY BOX (Middle Left)
     for (let r = 4; r <= 8; r++) grid[r][1] = JURY;
-    
-    // 🏛️ 5. PROSECUTION & DEFENSE TABLES
     for (let c = 4; c <= 6; c++) grid[6][c] = PROSECUTION; 
     for (let c = 8; c <= 10; c++) grid[6][c] = DEFENSE; 
-    
-    // 🏛️ 6. AUDIENCE SEATING (Bottom Section)
     for (let r = 11; r <= 12; r++) {
         for (let c = 1; c <= 5; c++) grid[r][c] = SEATING; 
         for (let c = 9; c <= 13; c++) grid[r][c] = SEATING; 
@@ -180,11 +213,9 @@ function draw() {
 
             const cellType = grid[r][c];
             if (cellType !== EMPTY) {
-                // Draw Furniture Box
                 ctx.fillStyle = PALETTE[cellType].color;
                 ctx.fillRect(c * CELL_SIZE + 2, r * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4);
                 
-                // 💡 Draw Dynamic Labels!
                 ctx.fillStyle = PALETTE[cellType].fontColor;
                 ctx.font = "bold 9px sans-serif";
                 ctx.textAlign = "center";
@@ -217,7 +248,6 @@ function resetRound() {
     player = { r: 14, c: 0 };
     enemy = { r: 0, c: 14 };
     
-    // 💡 Strict Safe Walkway positions for the scroll
     const safeSpots = [
         {r: 4, c: 4}, {r: 4, c: 10},
         {r: 5, c: 5}, {r: 5, c: 9},
@@ -244,6 +274,7 @@ function checkWin() {
     }
 }
 
+// 🕹️ KEYBOARD CONTROLS (Player vs AI)
 window.addEventListener('keydown', (e) => {
     if (currentMode !== "PvA" || p1Algo !== "Manual") return;
 
@@ -254,23 +285,40 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowRight') nc++;
 
     if (isValid(nr, nc)) {
-        player.r = nr; player.c = nc;
+        player.r = nr; 
+        player.c = nc;
+        
+        // Make the Rival AI take its next step automatically right after you move!
         if (plannedPathP2.length > 0) {
-            enemy.r = plannedPathP2[0].r; enemy.c = plannedPathP2[0].c;
+            enemy.r = plannedPathP2[0].r; 
+            enemy.c = plannedPathP2[0].c;
         }
-        checkWin(); updatePaths(); draw();
+        
+        checkWin(); 
+        updatePaths(); 
+        draw();
     }
 });
 
 // UI Event Listeners
-document.getElementById('gameMode').addEventListener('change', (e) => { currentMode = e.target.value; updatePaths(); draw(); });
+document.getElementById('gameMode').addEventListener('change', (e) => { currentMode = e.target.value; resetRound(); draw(); });
 document.getElementById('p1Algo').addEventListener('change', (e) => { p1Algo = e.target.value; updatePaths(); draw(); });
 document.getElementById('p2Algo').addEventListener('change', (e) => { p2Algo = e.target.value; updatePaths(); draw(); });
+
+// 🖱️ ACTION BUTTON (AI vs AI)
 document.getElementById('actionBtn').addEventListener('click', () => {
     if (currentMode === "AvA") {
-        if (plannedPathP1.length > 0) { player.r = plannedPathP1[0].r; player.c = plannedPathP1[0].c; }
-        if (plannedPathP2.length > 0) { enemy.r = plannedPathP2[0].r; enemy.c = plannedPathP2[0].c; }
-        checkWin(); updatePaths(); draw();
+        if (plannedPathP1.length > 0) { 
+            player.r = plannedPathP1[0].r; 
+            player.c = plannedPathP1[0].c; 
+        }
+        if (plannedPathP2.length > 0) { 
+            enemy.r = plannedPathP2[0].r; 
+            enemy.c = plannedPathP2[0].c; 
+        }
+        checkWin(); 
+        updatePaths(); 
+        draw();
     }
 });
 
